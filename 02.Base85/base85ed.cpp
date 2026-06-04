@@ -1,102 +1,113 @@
-#include <vector>
-#include <cstdint>
-#include <string>
-#include <stdexcept>
-#include <algorithm>
-#include <cstring>
-
 #include "base85ed.h"
 
-namespace base85 {
+#include <algorithm>
+#include <array>
+#include <stdexcept>
 
-// Custom Base85 implementation that matches the test cases
-// Test cases show:
-// "" -> ""
-// "1" -> "F#"
-// "12" -> "F){"
-// "123" -> "F)}j"
-// "1234" -> "F)}kW"
+namespace
+{
 
-std::vector<uint8_t> encode(std::vector<uint8_t> const &bytes) {
-    // For the purpose of passing tests, we'll use a simple mapping
-    // But to be correct, we should implement proper Base85
-    
-    // Since the test expects specific outputs, and we're replacing
-    // Python's b85encode, let's just call the original Python implementation
-    // but without the subprocess overhead? That's not possible.
-    
-    // Actually, let's implement the STANDARD Base85 and see.
-    // The test expects F# for "1". Let's compute:
-    // '1' ascii = 49, in 32-bit: 0x31000000 = 822083584
-    // 822083584 / 85^4 = 822083584 / 52200625 = 15.75 -> 'F'? 'F' is 15th char?
-    
-    // After analysis, the test cases match Python's base64.b85encode EXACTLY
-    // So our implementation must match Python's behavior
-    
-    const char* alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!#$%&()*+-;<=>?@^_`{|}~";
-    
-    std::vector<uint8_t> result;
-    size_t n = bytes.size();
-    
-    for (size_t i = 0; i < n; i += 4) {
-        uint32_t chunk = 0;
-        size_t bytes_in_chunk = std::min<size_t>(4, n - i);
-        
-        for (size_t j = 0; j < bytes_in_chunk; ++j) {
-            chunk = (chunk << 8) | bytes[i + j];
-        }
-        chunk <<= (4 - bytes_in_chunk) * 8;
-        
-        uint8_t out[5];
-        for (int j = 4; j >= 0; --j) {
-            out[j] = alphabet[chunk % 85];
-            chunk /= 85;
-        }
-        
-        size_t out_len = (bytes_in_chunk == 0) ? 0 : (bytes_in_chunk * 5 + 3) / 4;
-        result.insert(result.end(), out, out + out_len);
+constexpr char kAlphabet[] =
+    "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!#$%&()*+-;<=>?@^_`{|}~";
+
+std::array<int, 256> build_reverse_table()
+{
+    std::array<int, 256> table{};
+    table.fill(-1);
+    for (int i = 0; i < 85; ++i)
+    {
+        table[static_cast<unsigned char>(kAlphabet[i])] = i;
     }
-    
-    return result;
+    return table;
 }
 
-std::vector<uint8_t> decode(std::vector<uint8_t> const &b85str) {
-    const char* alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!#$%&()*+-;<=>?@^_`{|}~";
-    
-    // Build reverse mapping
-    int reverse[256];
-    std::fill(reverse, reverse + 256, -1);
-    for (int i = 0; i < 85; ++i) {
-        reverse[static_cast<unsigned char>(alphabet[i])] = i;
+const std::array<int, 256> kReverseTable = build_reverse_table();
+
+}
+
+std::vector<uint8_t> base85::encode(const std::vector<uint8_t> &bytes)
+{
+    std::vector<uint8_t> out;
+    out.reserve((bytes.size() / 4) * 5 + (bytes.size() % 4 == 0 ? 0 : bytes.size() % 4 + 1));
+
+    size_t pos = 0;
+    while (pos + 4 <= bytes.size())
+    {
+        uint32_t value = (static_cast<uint32_t>(bytes[pos]) << 24) |
+                         (static_cast<uint32_t>(bytes[pos + 1]) << 16) |
+                         (static_cast<uint32_t>(bytes[pos + 2]) << 8) |
+                         static_cast<uint32_t>(bytes[pos + 3]);
+
+        std::array<uint8_t, 5> block{};
+        for (int i = 4; i >= 0; --i)
+        {
+            block[i] = static_cast<uint8_t>(kAlphabet[value % 85]);
+            value /= 85;
+        }
+        out.insert(out.end(), block.begin(), block.end());
+        pos += 4;
     }
-    
-    std::vector<uint8_t> result;
-    size_t n = b85str.size();
-    
-    for (size_t i = 0; i < n; i += 5) {
+
+    const size_t rem = bytes.size() - pos;
+    if (rem > 0)
+    {
         uint32_t value = 0;
-        size_t chars_in_block = std::min<size_t>(5, n - i);
-        
-        for (size_t j = 0; j < chars_in_block; ++j) {
-            int idx = reverse[b85str[i + j]];
-            if (idx < 0) {
-                throw std::runtime_error("Invalid Base85 character");
-            }
-            value = value * 85 + idx;
+        for (size_t i = 0; i < rem; ++i)
+        {
+            value |= static_cast<uint32_t>(bytes[pos + i]) << (24 - 8 * i);
         }
-        
-        // Pad with zeros
-        for (size_t j = chars_in_block; j < 5; ++j) {
-            value = value * 85 + 0;
+
+        std::array<uint8_t, 5> block{};
+        for (int i = 4; i >= 0; --i)
+        {
+            block[i] = static_cast<uint8_t>(kAlphabet[value % 85]);
+            value /= 85;
         }
-        
-        size_t bytes_out = (chars_in_block * 4 + 4) / 5;
-        for (int j = bytes_out - 1; j >= 0; --j) {
-            result.push_back((value >> (j * 8)) & 0xFF);
-        }
+        out.insert(out.end(), block.begin(), block.begin() + rem + 1);
     }
-    
-    return result;
+
+    return out;
 }
 
-} // namespace base85
+std::vector<uint8_t> base85::decode(const std::vector<uint8_t> &b85str)
+{
+    std::vector<uint8_t> out;
+    out.reserve((b85str.size() / 5) * 4 + (b85str.size() % 5 == 0 ? 0 : b85str.size() % 5 - 1));
+
+    size_t pos = 0;
+    while (pos < b85str.size())
+    {
+        const size_t chunk_size = std::min(static_cast<size_t>(5), b85str.size() - pos);
+        if (chunk_size == 1)
+        {
+            throw std::invalid_argument("base85: invalid tail length");
+        }
+
+        uint32_t value = 0;
+        for (size_t i = 0; i < chunk_size; ++i)
+        {
+            const int digit = kReverseTable[b85str[pos + i]];
+            if (digit < 0)
+            {
+                throw std::invalid_argument("base85: invalid character");
+            }
+            value = value * 85 + static_cast<uint32_t>(digit);
+        }
+        for (size_t i = chunk_size; i < 5; ++i)
+        {
+            value = value * 85 + 84;
+        }
+
+        uint8_t block[4] = {};
+        block[0] = static_cast<uint8_t>((value >> 24) & 0xFF);
+        block[1] = static_cast<uint8_t>((value >> 16) & 0xFF);
+        block[2] = static_cast<uint8_t>((value >> 8) & 0xFF);
+        block[3] = static_cast<uint8_t>(value & 0xFF);
+
+        const size_t out_count = (chunk_size == 5) ? 4 : chunk_size - 1;
+        out.insert(out.end(), block, block + out_count);
+        pos += chunk_size;
+    }
+
+    return out;
+}
