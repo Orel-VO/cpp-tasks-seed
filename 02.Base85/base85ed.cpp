@@ -17,10 +17,11 @@ static constexpr uint8_t LAST_CHAR = 'u';
 static void encode_block(const uint8_t* input, uint8_t* output)
 {
     uint32_t value = 0;
-    value |= static_cast<uint32_t>(input[0]) << 24;
-    value |= static_cast<uint32_t>(input[1]) << 16;
-    value |= static_cast<uint32_t>(input[2]) << 8;
-    value |= static_cast<uint32_t>(input[3]);
+    // Little-endian порядок
+    value |= static_cast<uint32_t>(input[3]) << 24;
+    value |= static_cast<uint32_t>(input[2]) << 16;
+    value |= static_cast<uint32_t>(input[1]) << 8;
+    value |= static_cast<uint32_t>(input[0]);
 
     if (value == 0)
     {
@@ -28,7 +29,6 @@ static void encode_block(const uint8_t* input, uint8_t* output)
         return;
     }
 
-    // Генерируем 5 символов в правильном порядке (от старшего к младшему)
     uint32_t temp = value;
     for (int i = 4; i >= 0; --i)
     {
@@ -116,7 +116,7 @@ std::vector<uint8_t> encode(std::vector<uint8_t> const &bytes)
         }
     }
 
-    // Добавляем суффикс только для непустых данных
+    // Добавляем суффикс для непустых данных
     if (n > 0)
     {
         result.push_back('~');
