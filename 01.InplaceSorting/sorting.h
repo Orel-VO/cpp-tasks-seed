@@ -37,7 +37,6 @@ RandomIt median_of_three(RandomIt a, RandomIt b, RandomIt c)
     return b;
 }
 
-
 template <typename RandomIt>
 RandomIt lomuto_partition(RandomIt begin, RandomIt end)
 {
@@ -94,7 +93,7 @@ void quick_sort_impl(RandomIt begin, RandomIt end)
         }
     }
 }
-}
+} // namespace sorting_detail
 
 template <typename Iterator>
 void bubble_sort(Iterator begin, Iterator end)
