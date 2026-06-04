@@ -41,17 +41,26 @@ TEST(BubbleSort, Single)
 
 TEST(BubbleSort, AlreadySorted)
 {
-    expect_sort_matches_std({1, 2, 3, 4}, [](auto b, auto e) { bubble_sort(b, e); });
+    expect_sort_matches_std({1, 2, 3, 4}, [](auto b, auto e)
+    {
+        bubble_sort(b, e);
+    });
 }
 
 TEST(BubbleSort, Reverse)
 {
-    expect_sort_matches_std({4, 3, 2, 1}, [](auto b, auto e) { bubble_sort(b, e); });
+    expect_sort_matches_std({4, 3, 2, 1}, [](auto b, auto e)
+    {
+        bubble_sort(b, e);
+    });
 }
 
 TEST(BubbleSort, Duplicates)
 {
-    expect_sort_matches_std({3, 1, 4, 1, 5, 9, 2, 6, 5}, [](auto b, auto e) { bubble_sort(b, e); });
+    expect_sort_matches_std({3, 1, 4, 1, 5, 9, 2, 6, 5}, [](auto b, auto e)
+    {
+        bubble_sort(b, e);
+    });
 }
 
 TEST(QuickSort, Empty)
@@ -70,17 +79,26 @@ TEST(QuickSort, Single)
 
 TEST(QuickSort, AlreadySorted)
 {
-    expect_sort_matches_std({1, 2, 3, 4, 5}, [](auto b, auto e) { quick_sort(b, e); });
+    expect_sort_matches_std({1, 2, 3, 4, 5}, [](auto b, auto e)
+    {
+        quick_sort(b, e);
+    });
 }
 
 TEST(QuickSort, Reverse)
 {
-    expect_sort_matches_std({9, 8, 7, 6, 5}, [](auto b, auto e) { quick_sort(b, e); });
+    expect_sort_matches_std({9, 8, 7, 6, 5}, [](auto b, auto e)
+    {
+        quick_sort(b, e);
+    });
 }
 
 TEST(QuickSort, Duplicates)
 {
-    expect_sort_matches_std({2, 2, 2, 1, 0, 1}, [](auto b, auto e) { quick_sort(b, e); });
+    expect_sort_matches_std({2, 2, 2, 1, 0, 1}, [](auto b, auto e)
+    {
+        quick_sort(b, e);
+    });
 }
 
 TEST(SortingIntegration, RandomDataVariousSizesBubble)
@@ -94,7 +112,10 @@ TEST(SortingIntegration, RandomDataVariousSizesBubble)
         {
             x = static_cast<int>(gen() & 0x7fffffff);
         }
-        expect_sort_matches_std(std::move(data), [](auto b, auto e) { bubble_sort(b, e); });
+        expect_sort_matches_std(std::move(data), [](auto b, auto e)
+        {
+            bubble_sort(b, e);
+        });
     }
 }
 
@@ -109,6 +130,9 @@ TEST(SortingIntegration, RandomDataVariousSizesQuick)
         {
             x = static_cast<int>(gen() & 0x7fffffff);
         }
-        expect_sort_matches_std(std::move(data), [](auto b, auto e) { quick_sort(b, e); });
+        expect_sort_matches_std(std::move(data), [](auto b, auto e)
+        {
+            quick_sort(b, e);
+        });
     }
 }
