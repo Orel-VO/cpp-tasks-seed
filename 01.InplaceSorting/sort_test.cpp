@@ -98,10 +98,8 @@ TEST(SortingIntegration, RandomDataVariousSizesBubble)
     }
 }
 
-TEST(FooSuite, FooTest)
 TEST(SortingIntegration, RandomDataVariousSizesQuick)
 {
-    EXPECT_EQ(0, 0);
     std::mt19937 gen(99U);
     const int sizes[] = {0, 1, 2, 3, 10, 50, 100};
     for (int n : sizes)
