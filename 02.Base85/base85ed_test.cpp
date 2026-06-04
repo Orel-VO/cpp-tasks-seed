@@ -14,9 +14,9 @@
 static std::vector<uint8_t> cstr2v(const char *s)
 {
     return std::vector<uint8_t>(
-        reinterpret_cast<const uint8_t*>(s),
-        reinterpret_cast<const uint8_t*>(s) + std::string(s).size()
-    );
+               reinterpret_cast<const uint8_t*>(s),
+               reinterpret_cast<const uint8_t*>(s) + std::string(s).size()
+           );
 }
 
 static std::vector<uint8_t> string2v(const std::string& s)
@@ -34,7 +34,7 @@ static std::vector<uint8_t> generate_random_bytes(size_t size, uint32_t seed = 4
 {
     std::mt19937 rng(seed);
     std::uniform_int_distribution<uint8_t> dist(0, 255);
-    
+
     std::vector<uint8_t> result;
     result.reserve(size);
     for (size_t i = 0; i < size; ++i)
@@ -157,12 +157,12 @@ TEST(Base85Encode, MixedZeroAndNonZero)
     data.insert(data.end(), 4, 0);
     auto rest = cstr2v("456");
     data.insert(data.end(), rest.begin(), rest.end());
-    
+
     auto encoded = base85::encode(data);
     // Первые 3 байта "123" -> 4 символа, затем 'z', затем "456" -> 4 символа
     // Всего ожидается: [4 символа] + z + [4 символа] + ~>
     EXPECT_GT(encoded.size(), 0);
-    
+
     // Проверяем через декодирование
     auto decoded = base85::decode(encoded);
     EXPECT_EQ(decoded, data);
@@ -174,7 +174,8 @@ TEST(Base85Encode, MixedZeroAndNonZero)
 
 TEST(Base85Roundtrip, ShortStrings)
 {
-    std::vector<std::string> test_strings = {
+    std::vector<std::string> test_strings =
+    {
         "",
         "a",
         "ab",
@@ -186,7 +187,7 @@ TEST(Base85Roundtrip, ShortStrings)
         "Special chars: \x00\x01\x02\x03\xFF",
         "Longer string with multiple blocks of data for testing purposes"
     };
-    
+
     for (const auto& original_str : test_strings)
     {
         auto original = string2v(original_str);
@@ -198,10 +199,11 @@ TEST(Base85Roundtrip, ShortStrings)
 
 TEST(Base85Roundtrip, RandomData)
 {
-    std::vector<size_t> sizes = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 
-                                  15, 16, 17, 31, 32, 33, 63, 64, 65,
-                                  127, 128, 129, 255, 256, 257, 511, 512, 1024};
-    
+    std::vector<size_t> sizes = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+                                 15, 16, 17, 31, 32, 33, 63, 64, 65,
+                                 127, 128, 129, 255, 256, 257, 511, 512, 1024
+                                };
+
     for (size_t size : sizes)
     {
         for (uint32_t seed = 1; seed <= 5; ++seed)
@@ -209,8 +211,8 @@ TEST(Base85Roundtrip, RandomData)
             auto original = generate_random_bytes(size, seed);
             auto encoded = base85::encode(original);
             auto decoded = base85::decode(encoded);
-            EXPECT_EQ(decoded, original) 
-                << "Roundtrip failed for size=" << size << ", seed=" << seed;
+            EXPECT_EQ(decoded, original)
+                    << "Roundtrip failed for size=" << size << ", seed=" << seed;
         }
     }
 }
@@ -315,17 +317,17 @@ TEST(Base85Properties, EncodedLength)
 {
     auto data = generate_random_bytes(100, 1);
     auto encoded = base85::encode(data);
-    
+
     // Длина закодированных данных с суффиксом ~>
     // Каждые 4 байта -> 5 символов + возможно неполный последний блок
     size_t expected_blocks = (data.size() + 3) / 4;
     size_t expected_len = 0;
-    
+
     for (size_t i = 0; i < expected_blocks - 1; ++i)
     {
         expected_len += 5; // полные блоки
     }
-    
+
     // Последний блок
     size_t remaining = data.size() % 4;
     if (remaining == 0 && data.size() > 0)
@@ -344,12 +346,12 @@ TEST(Base85Properties, EncodedLength)
     {
         expected_len += 4;
     }
-    
+
     if (data.size() > 0)
     {
         expected_len += 2; // суффикс ~>
     }
-    
+
     EXPECT_EQ(encoded.size(), expected_len);
 }
 
@@ -357,7 +359,7 @@ TEST(Base85Properties, AsciiRange)
 {
     auto data = generate_random_bytes(1000, 42);
     auto encoded = base85::encode(data);
-    
+
     // Все символы должны быть в диапазоне 33-117 или быть 'z' или '~' или '>'
     for (uint8_t c : encoded)
     {
@@ -400,10 +402,10 @@ TEST(Base85Consistency, MultipleEncodeDecode)
     auto original = generate_random_bytes(256, 777);
     auto encoded1 = base85::encode(original);
     auto encoded2 = base85::encode(original);
-    
+
     // Кодирование должно быть детерминированным
     EXPECT_EQ(encoded1, encoded2);
-    
+
     auto decoded = base85::decode(encoded1);
     EXPECT_EQ(decoded, original);
 }
