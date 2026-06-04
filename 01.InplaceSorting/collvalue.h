@@ -3,7 +3,8 @@
 
 // Header-only
 
-template <typename T> class CollectingValue
+template <typename T>
+class CollectingValue
 {
 public:
     static inline size_t comps = 0; // С С++17 можно!
