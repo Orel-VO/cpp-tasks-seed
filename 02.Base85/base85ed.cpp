@@ -14,9 +14,6 @@ static constexpr uint32_t BASE = 85;
 static constexpr uint8_t FIRST_CHAR = '!';
 static constexpr uint8_t LAST_CHAR = 'u';
 
-static const std::vector<uint8_t> ZERO_BLOCK = {0, 0, 0, 0};
-static constexpr uint32_t MAGIC = 0x616c6646;
-
 static void encode_block(const uint8_t* input, uint8_t* output)
 {
     uint32_t value = 0;
@@ -40,7 +37,7 @@ static void encode_block(const uint8_t* input, uint8_t* output)
 
     for (int i = 0; i < 5; ++i)
     {
-        output[i] = chars[i] + FIRST_CHAR;
+        output[i] = static_cast<uint8_t>(chars[i] + FIRST_CHAR);
     }
 }
 
@@ -62,7 +59,7 @@ static void decode_block(const uint8_t* input, uint8_t* output)
         {
             throw std::invalid_argument("Invalid Base85 character");
         }
-        value = value * BASE + (input[i] - FIRST_CHAR);
+        value = value * BASE + static_cast<uint32_t>(input[i] - FIRST_CHAR);
     }
 
     output[0] = static_cast<uint8_t>((value >> 24) & 0xFF);
@@ -74,10 +71,10 @@ static void decode_block(const uint8_t* input, uint8_t* output)
 std::vector<uint8_t> encode(std::vector<uint8_t> const &bytes)
 {
     std::vector<uint8_t> result;
-    result.reserve((bytes.size() + 3) / 4 * 5 + 4);
-
+    
     size_t i = 0;
     size_t n = bytes.size();
+    
     while (i + 4 <= n)
     {
         bool all_zero = true;
@@ -89,7 +86,7 @@ std::vector<uint8_t> encode(std::vector<uint8_t> const &bytes)
                 break;
             }
         }
-
+        
         if (all_zero)
         {
             result.push_back('z');
@@ -104,111 +101,113 @@ std::vector<uint8_t> encode(std::vector<uint8_t> const &bytes)
         }
         i += 4;
     }
-
+    
     size_t remaining = n - i;
     if (remaining > 0)
     {
         uint8_t block[4] = {0, 0, 0, 0};
         std::copy(bytes.begin() + i, bytes.end(), block);
-
+        
         uint8_t encoded[5];
         encode_block(block, encoded);
-
-        if (remaining == 1)
+        
+        for (size_t j = 0; j < remaining + 1; ++j)
         {
-            result.insert(result.end(), encoded, encoded + 2);
-        }
-        else if (remaining == 2)
-        {
-            result.insert(result.end(), encoded, encoded + 3);
-        }
-        else if (remaining == 3)
-        {
-            result.insert(result.end(), encoded, encoded + 4);
+            result.push_back(encoded[j]);
         }
     }
-
-    result.push_back('~');
-    result.push_back('>');
-
+    
+    // Добавляем суффикс только если есть данные
+    if (n > 0)
+    {
+        result.push_back('~');
+        result.push_back('>');
+    }
+    
     return result;
 }
 
 std::vector<uint8_t> decode(std::vector<uint8_t> const &b85str)
 {
+    // Пустая строка - пустой результат
+    if (b85str.empty())
+    {
+        return std::vector<uint8_t>();
+    }
+    
     if (b85str.size() < 2)
     {
         throw std::invalid_argument("Invalid Base85 string: too short");
     }
-
+    
+    // Проверяем суффикс
     if (b85str[b85str.size() - 2] != '~' || b85str[b85str.size() - 1] != '>')
     {
         throw std::invalid_argument("Invalid Base85 string: missing '~>' suffix");
     }
-
+    
     std::vector<uint8_t> result;
-    result.reserve((b85str.size() - 2) / 5 * 4);
-
     size_t i = 0;
-    size_t n = b85str.size() - 2;
-
+    size_t n = b85str.size() - 2; // Игнорируем суффикс
+    
     while (i < n)
     {
         uint8_t c = b85str[i];
-
+        
         if (c == 'z')
         {
+            // 'z' означает 4 нулевых байта
             if (i + 1 < n && b85str[i + 1] == 'z')
             {
-                throw std::invalid_argument("Invalid Base85: consecutive 'z'");
+                // Два 'z' подряд - 8 нулевых байтов
+                result.insert(result.end(), 4, 0);
+                ++i;
+                continue;
             }
             result.insert(result.end(), 4, 0);
             ++i;
             continue;
         }
-
+        
+        // Обычный блок - должен содержать 5 символов
         if (i + 5 > n)
         {
+            // Последний неполный блок
             size_t remaining = n - i;
             if (remaining < 2)
             {
                 throw std::invalid_argument("Invalid Base85: incomplete block");
             }
-
+            
             uint8_t block[5] = {FIRST_CHAR, FIRST_CHAR, FIRST_CHAR, FIRST_CHAR, FIRST_CHAR};
             for (size_t j = 0; j < remaining; ++j)
             {
                 block[j] = b85str[i + j];
+                if (block[j] == 'z')
+                {
+                    throw std::invalid_argument("Invalid Base85: 'z' inside 5-char block");
+                }
+                if (block[j] < FIRST_CHAR || block[j] > LAST_CHAR)
+                {
+                    throw std::invalid_argument("Invalid Base85 character");
+                }
             }
-
-            uint8_t decoded[4] = {0, 0, 0, 0};
-            try
+            
+            uint8_t decoded[4];
+            decode_block(block, decoded);
+            
+            // Добавляем только нужное количество байт
+            // Для remaining = 2: 1 байт
+            // Для remaining = 3: 2 байта
+            // Для remaining = 4: 3 байта
+            for (size_t j = 0; j < remaining - 1; ++j)
             {
-                decode_block(block, decoded);
-            }
-            catch (const std::invalid_argument& e)
-            {
-                throw;
-            }
-
-            if (remaining == 2)
-            {
-                result.push_back(decoded[0]);
-            }
-            else if (remaining == 3)
-            {
-                result.push_back(decoded[0]);
-                result.push_back(decoded[1]);
-            }
-            else if (remaining == 4)
-            {
-                result.push_back(decoded[0]);
-                result.push_back(decoded[1]);
-                result.push_back(decoded[2]);
+                result.push_back(decoded[j]);
             }
             break;
         }
-
+        
+        // Полный блок из 5 символов
         uint8_t block[5];
         bool has_z = false;
         for (size_t j = 0; j < 5; ++j)
@@ -218,19 +217,23 @@ std::vector<uint8_t> decode(std::vector<uint8_t> const &b85str)
             {
                 has_z = true;
             }
+            if (block[j] < FIRST_CHAR || block[j] > LAST_CHAR)
+            {
+                throw std::invalid_argument("Invalid Base85 character");
+            }
         }
-
+        
         if (has_z)
         {
             throw std::invalid_argument("Invalid Base85: 'z' inside 5-char block");
         }
-
+        
         uint8_t decoded[4];
         decode_block(block, decoded);
         result.insert(result.end(), decoded, decoded + 4);
         i += 5;
     }
-
+    
     return result;
 }
 
