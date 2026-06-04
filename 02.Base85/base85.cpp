@@ -12,9 +12,9 @@ std::vector<uint8_t> read_stdin_to_vector_iostream()
     std::vector<uint8_t> out;
     out.reserve(1024);
     std::vector<char> buf(BUF_SIZE);
-    
+
     std::ios::sync_with_stdio(false);
-    
+
     while (std::cin)
     {
         std::cin.read(buf.data(), BUF_SIZE);
@@ -35,7 +35,7 @@ std::vector<uint8_t> read_stdin_to_vector_iostream()
 void write_vector_to_stdout(const std::vector<uint8_t>& data)
 {
     std::ios::sync_with_stdio(false);
-    
+
     if (!data.empty())
     {
         std::cout.write(reinterpret_cast<const char*>(data.data()), data.size());
@@ -50,10 +50,10 @@ int main(int argc, const char *argv[])
         std::cerr << "Usage: " << argv[0] << " [-e|--encode] | [-d|--decode]\n";
         return 1;
     }
-    
+
     std::function<std::vector<uint8_t>(const std::vector<uint8_t>&)> func = nullptr;
     std::string arg = argv[1];
-    
+
     if (arg == "--encode" || arg == "-e")
     {
         func = base85::encode;
@@ -67,7 +67,7 @@ int main(int argc, const char *argv[])
         std::cerr << "Unknown argument: " << arg << ". Use -e or -d\n";
         return 1;
     }
-    
+
     try
     {
         auto data = read_stdin_to_vector_iostream();
@@ -79,6 +79,6 @@ int main(int argc, const char *argv[])
         std::cerr << "Error: " << e.what() << std::endl;
         return 1;
     }
-    
+
     return 0;
 }
