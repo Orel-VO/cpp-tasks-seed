@@ -1,52 +1,31 @@
-#include "Gauss_solve.h"
-#include <cmath>
-#include <stdexcept>
+#include <iostream>
+#include <string>
 
+#include <Eigen/Dense>
+#include <lazycsv.hpp>
 
-static constexpr double PIVOT_EPSILON = 1e-12; 
-GaussVector Gauss_solve(GaussMatrix &ab)
+#include "util.h"
+
+int main(int argc, const char *argv[])
 {
-    const Eigen::Index n = ab.rows();
-    if (ab.cols() != n + 1)
-        throw std::runtime_error(
-            "Gauss_solve: augmented matrix must have shape n×(n+1), got " +
-            std::to_string(n) + "×" + std::to_string(ab.cols()));
+    auto A = load_csv_to_matrix(argv[1]);
 
-    for (Eigen::Index col = 0; col < n; ++col) {
+    Eigen::MatrixXd B(3, 2); // ColMajor по-умолчанию
+    B << 7, 8,
+    9, 10,
+    11, 12;
 
-        Eigen::Index pivot_row = col;
-        double max_val = std::abs(ab(col, col));
-        for (Eigen::Index row = col + 1; row < n; ++row) {
-            double val = std::abs(ab(row, col));
-            if (val > max_val) {
-                max_val = val;
-                pivot_row = row;
-            }
-        }
+    Eigen::MatrixXd C = A * B;
 
-        if (max_val < PIVOT_EPSILON)
-            throw std::runtime_error(
-                "Gauss_solve: matrix is singular or nearly singular at step " +
-                std::to_string(col));
+    std::cout << "Матрица A:\n" << A << "\n\n";
+    std::cout << "Матрица B:\n" << B << "\n\n";
+    std::cout << "Результат умножения (C = A * B):\n" << C << "\n";
 
-        if (pivot_row != col)
-            ab.row(col).swap(ab.row(pivot_row));
+    // Редактирование на месте
+    double c = 2.0;
+    A.row(0) += c * A.row(1);
+    A.coeffRef(1, 1) -= B.coeff(1, 1);
+    std::cout << "Новая матрица A:\n" << A << "\n\n";
 
-        const double pivot = ab(col, col);
-        for (Eigen::Index row = col + 1; row < n; ++row) {
-            double factor = ab(row, col) / pivot;
-            ab.row(row) -= factor * ab.row(col);
-            ab(row, col) = 0.0;
-        }
-    }
-
-    GaussVector x(n);
-    for (Eigen::Index i = n - 1; i >= 0; --i) {
-        if (i + 1 < n)
-            sum -= ab.row(i).segment(i + 1, n - 1 - i).dot(
-                       x.segment(i + 1, n - 1 - i));
-        x(i) = sum / ab(i, i);
-    }
-
-    return x;
+    return 0;
 }
