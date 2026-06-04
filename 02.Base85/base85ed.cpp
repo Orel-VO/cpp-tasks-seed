@@ -17,11 +17,11 @@ static constexpr uint8_t LAST_CHAR = 'u';
 static void encode_block(const uint8_t* input, uint8_t* output)
 {
     uint32_t value = 0;
-    // Little-endian порядок
-    value |= static_cast<uint32_t>(input[3]) << 24;
-    value |= static_cast<uint32_t>(input[2]) << 16;
-    value |= static_cast<uint32_t>(input[1]) << 8;
-    value |= static_cast<uint32_t>(input[0]);
+    // Big-endian порядок (как в Adobe Ascii85)
+    value |= static_cast<uint32_t>(input[0]) << 24;
+    value |= static_cast<uint32_t>(input[1]) << 16;
+    value |= static_cast<uint32_t>(input[2]) << 8;
+    value |= static_cast<uint32_t>(input[3]);
 
     if (value == 0)
     {
@@ -29,6 +29,7 @@ static void encode_block(const uint8_t* input, uint8_t* output)
         return;
     }
 
+    // Генерируем 5 символов в правильном порядке (от старшего к младшему)
     uint32_t temp = value;
     for (int i = 4; i >= 0; --i)
     {
@@ -68,6 +69,13 @@ std::vector<uint8_t> encode(std::vector<uint8_t> const &bytes)
 {
     std::vector<uint8_t> result;
     size_t n = bytes.size();
+
+    // Для пустых данных возвращаем пустой результат
+    if (n == 0)
+    {
+        return result;
+    }
+
     size_t i = 0;
 
     // Обрабатываем полные блоки по 4 байта
@@ -91,7 +99,10 @@ std::vector<uint8_t> encode(std::vector<uint8_t> const &bytes)
         {
             uint8_t encoded[5];
             encode_block(&bytes[i], encoded);
-            result.insert(result.end(), encoded, encoded + 5);
+            for (int j = 0; j < 5; ++j)
+            {
+                result.push_back(encoded[j]);
+            }
         }
         i += 4;
     }
@@ -116,12 +127,9 @@ std::vector<uint8_t> encode(std::vector<uint8_t> const &bytes)
         }
     }
 
-    // Добавляем суффикс для непустых данных
-    if (n > 0)
-    {
-        result.push_back('~');
-        result.push_back('>');
-    }
+    // Добавляем суффикс
+    result.push_back('~');
+    result.push_back('>');
 
     return result;
 }
@@ -140,7 +148,8 @@ std::vector<uint8_t> decode(std::vector<uint8_t> const &b85str)
     }
 
     // Проверяем суффикс
-    if (b85str[b85str.size() - 2] != '~' || b85str[b85str.size() - 1] != '>')
+    size_t last = b85str.size() - 1;
+    if (b85str[last - 1] != '~' || b85str[last] != '>')
     {
         throw std::invalid_argument("Invalid Base85 string: missing '~>' suffix");
     }
@@ -158,17 +167,16 @@ std::vector<uint8_t> decode(std::vector<uint8_t> const &b85str)
             continue;
         }
 
-        // Проверяем, хватает ли символов для полного блока
+        // Проверяем, хватает ли символов для блока
         if (i + 5 <= n)
         {
             uint8_t block[5];
-            bool has_z = false;
-            for (size_t j = 0; j < 5; ++j)
+            for (int j = 0; j < 5; ++j)
             {
                 block[j] = b85str[i + j];
                 if (block[j] == 'z')
                 {
-                    has_z = true;
+                    throw std::invalid_argument("Invalid Base85: 'z' inside 5-char block");
                 }
                 if (block[j] < FIRST_CHAR || block[j] > LAST_CHAR)
                 {
@@ -176,14 +184,12 @@ std::vector<uint8_t> decode(std::vector<uint8_t> const &b85str)
                 }
             }
 
-            if (has_z)
-            {
-                throw std::invalid_argument("Invalid Base85: 'z' inside 5-char block");
-            }
-
             uint8_t decoded[4];
             decode_block(block, decoded);
-            result.insert(result.end(), decoded, decoded + 4);
+            for (int j = 0; j < 4; ++j)
+            {
+                result.push_back(decoded[j]);
+            }
             i += 5;
         }
         else
@@ -195,7 +201,11 @@ std::vector<uint8_t> decode(std::vector<uint8_t> const &b85str)
                 throw std::invalid_argument("Invalid Base85: incomplete block");
             }
 
-            uint8_t block[5] = {FIRST_CHAR, FIRST_CHAR, FIRST_CHAR, FIRST_CHAR, FIRST_CHAR};
+            uint8_t block[5];
+            for (int j = 0; j < 5; ++j)
+            {
+                block[j] = FIRST_CHAR;
+            }
             for (size_t j = 0; j < remaining; ++j)
             {
                 block[j] = b85str[i + j];
