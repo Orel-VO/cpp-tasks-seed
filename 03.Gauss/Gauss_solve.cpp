@@ -1,31 +1,56 @@
-#include <iostream>
-#include <string>
+#include "Gauss_solve.h"
 
-#include <Eigen/Dense>
-#include <lazycsv.hpp>
+#include <cmath>
+#include <stdexcept>
 
-#include "util.h"
-
-int main(int argc, const char *argv[])
+GaussVector Gauss_solve(GaussMatrix &ab)
 {
-    auto A = load_csv_to_matrix(argv[1]);
+    const int rows = ab.rows();
+    const int cols = ab.cols();
+    if (rows <= 0 || cols != rows + 1)
+    {
+        throw std::invalid_argument("invalid augmented matrix size");
+    }
 
-    Eigen::MatrixXd B(3, 2); // ColMajor по-умолчанию
-    B << 7, 8,
-    9, 10,
-    11, 12;
+    constexpr double eps = 1e-12;
+    for (int col = 0; col < rows; ++col)
+    {
+        int pivot = col;
+        double pivot_abs = std::abs(ab(col, col));
+        for (int row = col + 1; row < rows; ++row)
+        {
+            const double current_abs = std::abs(ab(row, col));
+            if (current_abs > pivot_abs)
+            {
+                pivot = row;
+                pivot_abs = current_abs;
+            }
+        }
 
-    Eigen::MatrixXd C = A * B;
+        if (pivot_abs < eps)
+        {
+            throw std::invalid_argument("singular system");
+        }
 
-    std::cout << "Матрица A:\n" << A << "\n\n";
-    std::cout << "Матрица B:\n" << B << "\n\n";
-    std::cout << "Результат умножения (C = A * B):\n" << C << "\n";
+        if (pivot != col)
+        {
+            ab.row(col).swap(ab.row(pivot));
+        }
 
-    // Редактирование на месте
-    double c = 2.0;
-    A.row(0) += c * A.row(1);
-    A.coeffRef(1, 1) -= B.coeff(1, 1);
-    std::cout << "Новая матрица A:\n" << A << "\n\n";
+        ab.row(col) /= ab(col, col);
+        for (int row = 0; row < rows; ++row)
+        {
+            if (row == col)
+            {
+                continue;
+            }
+            const double factor = ab(row, col);
+            if (std::abs(factor) > eps)
+            {
+                ab.row(row) -= factor * ab.row(col);
+            }
+        }
+    }
 
-    return 0;
+    return ab.col(cols - 1);
 }
