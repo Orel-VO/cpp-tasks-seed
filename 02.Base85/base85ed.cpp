@@ -3,7 +3,7 @@
 #include <string>
 #include <stdexcept>
 #include <algorithm>
-#include <array>
+#include <iostream>
 
 #include "base85ed.h"
 
@@ -28,7 +28,7 @@ static void encode_block(const uint8_t* input, uint8_t* output)
         return;
     }
 
-    // Генерируем 5 символов (от старшего к младшему)
+    // Правильный порядок: сначала старший разряд (output[0])
     uint32_t temp = value;
     for (int i = 4; i >= 0; --i)
     {
@@ -78,17 +78,7 @@ std::vector<uint8_t> encode(std::vector<uint8_t> const &bytes)
 
     while (i + 4 <= n)
     {
-        bool all_zero = true;
-        for (size_t j = 0; j < 4; ++j)
-        {
-            if (bytes[i + j] != 0)
-            {
-                all_zero = false;
-                break;
-            }
-        }
-
-        if (all_zero)
+        if (bytes[i] == 0 && bytes[i+1] == 0 && bytes[i+2] == 0 && bytes[i+3] == 0)
         {
             result.push_back('z');
         }
@@ -116,6 +106,7 @@ std::vector<uint8_t> encode(std::vector<uint8_t> const &bytes)
         uint8_t encoded[5];
         encode_block(block, encoded);
 
+        // Для неполного блока берем (remaining + 1) символов
         for (size_t j = 0; j < remaining + 1; ++j)
         {
             result.push_back(encoded[j]);
@@ -194,11 +185,7 @@ std::vector<uint8_t> decode(std::vector<uint8_t> const &b85str)
                 throw std::invalid_argument("Invalid Base85: incomplete block");
             }
 
-            uint8_t block[5];
-            for (int j = 0; j < 5; ++j)
-            {
-                block[j] = FIRST_CHAR;
-            }
+            uint8_t block[5] = {FIRST_CHAR, FIRST_CHAR, FIRST_CHAR, FIRST_CHAR, FIRST_CHAR};
             for (size_t j = 0; j < remaining; ++j)
             {
                 block[j] = b85str[i + j];
