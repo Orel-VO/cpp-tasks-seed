@@ -12,4 +12,4 @@ std::vector<uint8_t> decode(const std::vector<uint8_t> &b85str);
 
 }
 
-#endif 
+#endif
