@@ -1,9 +1,10 @@
 CXX = g++
-CXXFLAGS = -Werror -Wpedantic -Wall
+CXXFLAGS = -Werror -Wpedantic -Wall $(CXX_EXTRA_FLAGS)
 CXXFLAGS_R = $(CXXFLAGS) -O3 -DNDEBUG
 CXXFLAGS_D = $(CXXFLAGS) -g  -DDEBUG
 GTEST_LIBS = -lgtest -lgtest_main -lpthread
 LD=$(CXX)
+
 
 %.d.o : %.cpp
 	$(CXX) -c $(CXXFLAGS_D) -o $@ $<

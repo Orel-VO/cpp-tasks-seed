@@ -12,8 +12,8 @@ runs:
         build-essential \
         libgtest-dev \
         xutils-dev \
-        cmake \
-        clang clang-tidy
+        libopenblas-dev libomp-dev libomp5 \
+        cmake clang clang-tidy
 
     - name: Установка Python 3.12
       uses: actions/setup-python@v5

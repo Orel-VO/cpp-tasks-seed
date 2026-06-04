@@ -12,5 +12,5 @@ set -eo pipefail
 
 for f in $FILES; do
   echo "Running clang-tidy on $f"
-  clang-tidy -p . -checks="$CHECKS" "$f" --quiet 2>&1
+  clang-tidy -p .  -checks="$CHECKS" "$f" --extra-arg="-isystem${PWD}/../external/eigen" --extra-arg="-isystem${PWD}/../external/lazycsv/include" --quiet 2>&1
 done

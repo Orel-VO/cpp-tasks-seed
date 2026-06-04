@@ -17,11 +17,14 @@ jobs:
         - 00.DummyMake
         - 01.InplaceSorting
         - 02.Base85
+        - 03.Gauss
 
     steps:
 
     - name: Получение кода и actions
       uses: actions/checkout@v4
+      with:
+        submodules: recursive
 
     - name: Инсталляция инструментов
       uses: ./.github/actions/install-prerequisites

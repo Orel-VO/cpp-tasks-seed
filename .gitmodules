@@ -1,0 +1,6 @@
+[submodule "external/external/eigen"]
+	path = external/eigen
+	url = https://gitlab.com/libeigen/eigen.git
+[submodule "external/lazycsv"]
+	path = external/lazycsv
+	url = https://github.com/ashtum/lazycsv
