@@ -23,7 +23,7 @@ void expect_sort_matches_std(std::vector<int> data, SortFn sort_fn)
     sort_fn(data.begin(), data.end());
     EXPECT_EQ(data, expected);
 }
-}
+} // namespace
 
 TEST(BubbleSort, Empty)
 {
@@ -36,7 +36,7 @@ TEST(BubbleSort, Single)
 {
     std::vector<int> v = {42};
     bubble_sort(v.begin(), v.end());
-    EXPECT_EQ(v, (std::vector<int>{42}));
+    EXPECT_EQ(v, (std::vector<int> {42}));
 }
 
 TEST(BubbleSort, AlreadySorted)
@@ -65,7 +65,7 @@ TEST(QuickSort, Single)
 {
     std::vector<int> v = {7};
     quick_sort(v.begin(), v.end());
-    EXPECT_EQ(v, (std::vector<int>{7}));
+    EXPECT_EQ(v, (std::vector<int> {7}));
 }
 
 TEST(QuickSort, AlreadySorted)
