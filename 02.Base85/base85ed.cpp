@@ -4,83 +4,98 @@
 #include <stdexcept>
 #include <array>
 #include <algorithm>
-#include <cmath>
+#include <cstring>
 
 #include "base85ed.h"
 
 namespace base85 {
 
 namespace {
-    const char BASE85_ALPHABET[] = 
+    // Adobe Base85 alphabet (same as Python's base64.b85encode)
+    const std::string ALPHABET = 
         "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         "abcdefghijklmnopqrstuvwxyz!#$%&()*+-;<=>?@^_`{|}~";
-
-    constexpr int REVERSE_ALPHABET_SIZE = 256;
-    std::array<int8_t, REVERSE_ALPHABET_SIZE> build_reverse_alphabet() {
-        std::array<int8_t, REVERSE_ALPHABET_SIZE> rev;
+    
+    // Reverse lookup table
+    std::array<int8_t, 256> build_reverse() {
+        std::array<int8_t, 256> rev;
         rev.fill(-1);
-        for (int i = 0; i < 85; ++i) {
-            rev[static_cast<unsigned char>(BASE85_ALPHABET[i])] = i;
+        for (size_t i = 0; i < ALPHABET.size(); ++i) {
+            rev[static_cast<unsigned char>(ALPHABET[i])] = static_cast<int8_t>(i);
         }
         return rev;
     }
-
-    const std::array<int8_t, REVERSE_ALPHABET_SIZE> REVERSE_ALPHABET = build_reverse_alphabet();
-
-    void encode_block(const uint8_t* input, uint8_t* output) {
+    
+    const auto REV = build_reverse();
+    
+    // Encode 4 bytes to 5 chars
+    void encode4(const uint8_t* in, std::vector<uint8_t>& out) {
         uint32_t value = 0;
-        value |= static_cast<uint32_t>(input[0]) << 24;
-        value |= static_cast<uint32_t>(input[1]) << 16;
-        value |= static_cast<uint32_t>(input[2]) << 8;
-        value |= static_cast<uint32_t>(input[3]);
-
+        value |= static_cast<uint32_t>(in[0]) << 24;
+        value |= static_cast<uint32_t>(in[1]) << 16;
+        value |= static_cast<uint32_t>(in[2]) << 8;
+        value |= static_cast<uint32_t>(in[3]);
+        
+        char buf[5];
         for (int i = 4; i >= 0; --i) {
-            output[i] = BASE85_ALPHABET[value % 85];
+            buf[i] = ALPHABET[value % 85];
             value /= 85;
         }
+        out.insert(out.end(), reinterpret_cast<uint8_t*>(buf), 
+                   reinterpret_cast<uint8_t*>(buf + 5));
     }
-
-    void decode_block(const uint8_t* input, uint8_t* output) {
+    
+    // Decode 5 chars to 4 bytes
+    void decode5(const uint8_t* in, std::vector<uint8_t>& out) {
         uint32_t value = 0;
         for (int i = 0; i < 5; ++i) {
-            int idx = REVERSE_ALPHABET[input[i]];
+            int idx = REV[in[i]];
             if (idx < 0) {
-                throw Base85Exception("Invalid Base85 character found");
+                throw Base85Exception("Invalid Base85 character");
             }
             value = value * 85 + idx;
         }
-
-        output[0] = (value >> 24) & 0xFF;
-        output[1] = (value >> 16) & 0xFF;
-        output[2] = (value >> 8) & 0xFF;
-        output[3] = value & 0xFF;
+        
+        out.push_back((value >> 24) & 0xFF);
+        out.push_back((value >> 16) & 0xFF);
+        out.push_back((value >> 8) & 0xFF);
+        out.push_back(value & 0xFF);
     }
 }
 
 std::vector<uint8_t> encode(std::vector<uint8_t> const &bytes) {
     std::vector<uint8_t> result;
-    
     size_t i = 0;
-    const size_t n = bytes.size();
-    const size_t full_blocks = n / 4;
-    const size_t remainder = n % 4;
+    size_t n = bytes.size();
     
-    for (i = 0; i < full_blocks; ++i) {
-        uint8_t output[5];
-        encode_block(&bytes[i * 4], output);
-        result.insert(result.end(), output, output + 5);
+    // Process full blocks of 4 bytes
+    for (; i + 3 < n; i += 4) {
+        encode4(&bytes[i], result);
     }
     
-    if (remainder > 0) {
+    // Process remaining bytes (1-3 bytes)
+    size_t rem = n - i;
+    if (rem > 0) {
         uint8_t block[4] = {0, 0, 0, 0};
-        std::copy(&bytes[i * 4], &bytes[i * 4] + remainder, block);
+        std::copy(bytes.begin() + i, bytes.end(), block);
         
-        uint8_t output[5];
-        encode_block(block, output);
+        uint32_t value = 0;
+        value |= static_cast<uint32_t>(block[0]) << 24;
+        value |= static_cast<uint32_t>(block[1]) << 16;
+        value |= static_cast<uint32_t>(block[2]) << 8;
+        value |= static_cast<uint32_t>(block[3]);
         
+        char buf[5];
+        for (int j = 4; j >= 0; --j) {
+            buf[j] = ALPHABET[value % 85];
+            value /= 85;
+        }
         
-        int output_chars = (remainder * 5 + 3) / 4; 
-        result.insert(result.end(), output, output + output_chars);
+        // For partial blocks, output only needed characters
+        // rem bytes -> output chars = (rem * 5 + 3) / 4
+        int out_chars = (rem * 5 + 3) / 4;
+        result.insert(result.end(), reinterpret_cast<uint8_t*>(buf), 
+                     reinterpret_cast<uint8_t*>(buf + out_chars));
     }
     
     return result;
@@ -88,43 +103,48 @@ std::vector<uint8_t> encode(std::vector<uint8_t> const &bytes) {
 
 std::vector<uint8_t> decode(std::vector<uint8_t> const &b85str) {
     std::vector<uint8_t> result;
-    const size_t n = b85str.size();
-    
     std::vector<uint8_t> clean;
-    clean.reserve(n);
+    
+    // Remove whitespace
     for (uint8_t c : b85str) {
         if (c != ' ' && c != '\n' && c != '\r' && c != '\t') {
             clean.push_back(c);
         }
     }
     
-    const size_t clean_n = clean.size();
-    if (clean_n == 0) {
-        return result;
-    }
+    size_t n = clean.size();
+    if (n == 0) return result;
     
     size_t i = 0;
-    const size_t full_blocks = clean_n / 5;
-    
-    for (i = 0; i < full_blocks; ++i) {
-        uint8_t output[4];
-        decode_block(&clean[i * 5], output);
-        result.insert(result.end(), output, output + 4);
+    // Process full blocks of 5 chars
+    for (; i + 4 < n; i += 5) {
+        decode5(&clean[i], result);
     }
-    size_t remainder = clean_n % 5;
-    if (remainder > 0) {
-        uint8_t block[5];
-        std::fill(block, block + 5, '0');
-        std::copy(&clean[i * 5], &clean[i * 5] + remainder, block);
+    
+    // Process partial block
+    size_t rem = n - i;
+    if (rem > 0 && rem < 5) {
+        uint8_t block[5] = {'0', '0', '0', '0', '0'};
+        std::copy(clean.begin() + i, clean.end(), block);
         
-        uint8_t output[4];
-        decode_block(block, output);
+        uint32_t value = 0;
+        for (int j = 0; j < 5; ++j) {
+            int idx = REV[block[j]];
+            if (idx < 0) {
+                throw Base85Exception("Invalid Base85 character in partial block");
+            }
+            value = value * 85 + idx;
+        }
         
-        int output_bytes = (remainder * 4) / 5;
-        result.insert(result.end(), output, output + output_bytes);
+        // Calculate output bytes: for rem input chars, output = (rem * 4) / 5
+        int out_bytes = (rem * 4) / 5;
+        result.push_back((value >> 24) & 0xFF);
+        if (out_bytes > 1) result.push_back((value >> 16) & 0xFF);
+        if (out_bytes > 2) result.push_back((value >> 8) & 0xFF);
+        if (out_bytes > 3) result.push_back(value & 0xFF);
     }
     
     return result;
 }
 
-} 
+} // namespace base85
